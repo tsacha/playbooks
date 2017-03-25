@@ -1,0 +1,65 @@
+---
+- name: update cache and upgrade system (Fedora)
+  dnf:
+    name: '*'
+    state: latest
+  when: ansible_distribution == 'Fedora'
+  tags: dnf
+
+- name: update cache and upgrade system (Archlinux)
+  pacman:
+    update_cache: yes
+    upgrade: yes
+  when: ansible_distribution == 'Archlinux'
+  tags: pacman
+
+- name: install tools packages (Archlinux)
+  pacman: name={{ item }} state=latest
+  with_items:
+    - vim
+    - emacs-nox
+    - tmux
+    - ansible
+    - git
+    - openssh
+    - net-tools
+    - parallel
+    - the_silver_searcher
+    - bash-completion
+    - rsync
+    - python-netaddr
+    - python2-netaddr
+    - python-yaml
+    - bind-tools
+    - htop
+    - sudo
+  when: ansible_distribution == 'Archlinux'
+  tags: pacman
+
+- name: install tools packages (Fedora)
+  dnf: name={{ item }} state=latest
+  with_items:
+    - vim
+    - emacs-nox
+    - tmux
+    - ansible
+    - git
+    - openssh
+    - net-tools
+    - parallel
+    - the_silver_searcher
+    - bash-completion
+    - rsync
+    - python-netaddr
+    - python3-netaddr
+    - python3-PyYAML
+    - bind-utils
+    - htop
+    - sudo
+  when: ansible_distribution == 'Fedora'
+  tags: dnf
+
+- name: disable emacs temporary files
+  template:
+    src: emacs.el.j2
+    dest: /root/.emacs.el

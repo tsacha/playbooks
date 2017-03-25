@@ -1,0 +1,30 @@
+{% set dns_data = dns_common|combine(dns_zones[item], recursive=True) %}
+$TTL 1d
+$ORIGIN {{ item }}
+; ---- SOA ----
+@ IN SOA {{ item }} {{ dns_data['SOA']['@']['email-addr'] }} {{ ansible_date_time['year'] }}{{ ansible_date_time['month'] }}{{ ansible_date_time['day'] }}{{ sn }} {{ dns_data['SOA']['@']['refresh'] }} {{ dns_data['SOA']['@']['retry'] }} {{ dns_data['SOA']['@']['expiry'] }} {{ dns_data['SOA']['@']['ttl'] }}
+{% for type in ['NS', 'A', 'AAAA', 'MX', 'TXT', 'CAA'] %}
+; ---- {{ type }} ----
+{% for type_raw in dns_data[type] %}
+{% for type_entry in dns_data[type][type_raw] %}
+{% if dns_data[type][type_raw][type_entry] is defined %}
+{{ type_raw }} IN {{ type }} {{ dns_data[type][type_raw][type_entry] }} {{ type_entry }}
+{% else %}
+{{ type_raw }} IN {{ type }} {{ type_entry }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endfor %}
+; ---- SPF ----
+{% for spf_raw in dns_data['SPF'] %}
+{{ spf_raw }} IN SPF "v=spf1{% for spf_entry in dns_data['SPF'][spf_raw] %} ip{% if ':' in spf_entry %}6{% else %}4{% endif %}:{{ spf_entry }}{% endfor %} -all"
+{{ spf_raw }} IN TXT "v=spf1{% for spf_entry in dns_data['SPF'][spf_raw] %} ip{% if ':' in spf_entry %}6{% else %}4{% endif %}:{{ spf_entry }}{% endfor %} -all"
+{% endfor %}
+; ---- CNAME ----
+{% for raw in dns_data['CNAME'] %}
+{{ raw }} IN CNAME {{ dns_data['CNAME'][raw] }}
+{% endfor %}
+; ---- SRV ----
+{% for raw in dns_data['SRV'] %}
+{{ raw['service'] }}.{{ raw['proto'] }}.{{ item }} IN SRV {{ raw['priority'] }} {{ raw['weight'] }} {{ raw['port'] }} {{ raw['target'] }}
+{% endfor %}

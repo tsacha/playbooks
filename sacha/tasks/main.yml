@@ -1,0 +1,30 @@
+---
+- name: install hugo
+  get_url:
+    url: "https://github.com/spf13/hugo/releases/download/v0.19/hugo_0.19_Linux-64bit.tar.gz"
+    dest: "/opt/hugo.tgz"
+  register: hugodl
+
+- name: unarchive hugo
+  unarchive:
+    src: /opt/hugo.tgz
+    dest: /opt
+    remote_src: True
+  when: '{{ hugodl.changed }}'
+
+- name: clone blog
+  git:
+    repo: https://github.com/tsacha/s.tremoureux.fr.git
+    dest: /srv/http/blog/
+  notify: generate blog
+
+- name: clone theme
+  git:
+    repo: https://github.com/tsacha/notsohyde.git
+    dest: /srv/http/blog/themes/not-so-hyde
+
+- name: sacha.conf
+  template:
+    src: sacha.conf.j2
+    dest: /etc/nginx/conf.d/20_sacha.conf
+  notify: reload nginx

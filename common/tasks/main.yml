@@ -1,0 +1,25 @@
+---
+- name: dns configuration
+  template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+  when: ansible_nodename == 's1.mkfs.fr'
+
+- name: sysctl configuration
+  template:
+    src: sysctl.conf.j2
+    dest: /etc/sysctl.conf
+  notify: apply sysctl
+  when: "'lxc' not in group_names"
+
+- name: ensure ssh service
+  service:
+    name: sshd
+    state: started
+    enabled: true
+
+- name: ensure systemd-networkd service
+  service:
+    name: systemd-networkd
+    state: started
+    enabled: true

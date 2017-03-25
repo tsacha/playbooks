@@ -1,0 +1,88 @@
+---
+- name: install acme client deps
+  pacman:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - gnu-netcat
+    - python-pyopenssl
+
+- name: create challenges directory
+  file:
+    path: /srv/challenges
+    state: directory
+    owner: http
+    group: http
+  notify: reload nginx
+
+- name: acme home page
+  template:
+    src: home.html.j2
+    dest: /srv/challenges/index.html
+    owner: http
+    group: http
+
+- name: serve .well-known/acme-challenge/
+  template:
+    src: challenges.conf.j2
+    dest: /etc/nginx/conf.d/00_challenges.conf
+  notify: reload nginx
+
+- name: create challenges directory
+  file:
+    path: /srv/certs
+    state: directory
+
+- name: copy certs data
+  copy:
+    src: /srv/ansible/group_vars/all/certs.yml
+    dest: /srv/certs/certs.yml
+
+- name: create pull script
+  template:
+    src: pull.py.j2
+    dest: /srv/certs/pull.py
+    mode: '0750'
+
+- name: clone acme.sh
+  git:
+    repo: https://github.com/Neilpang/acme.sh
+    dest: /srv/acme.sh
+  notify: install acme.sh
+
+- meta: flush_handlers
+
+- name: renew certs
+  shell: /srv/certs/pull.py
+  no_log: true
+  register: certsresults
+  changed_when: certsresults.rc == 1
+  failed_when: certsresults.rc > 1
+
+- name: fetch certs
+  fetch:
+    src: '/root/.acme.sh/{{ item[0] }}{{ item[1] }}/{{ item[0] }}{{ item[2] }}'
+    dest: '/srv/certs/{{ item[0] }}{{ item[1] }}{{ item[2] }}'
+    flat: yes
+  with_nested:
+    - '{{ certs }}'
+    - ['', '_ecc']
+    - ['.cer', '.key']
+
+- name: fetch chains
+  fetch:
+    src: '/root/.acme.sh/{{ item[0] }}{{ item[1] }}/fullchain.cer'
+    dest: '/srv/certs/{{ item[0] }}{{ item[1] }}.chain.cer'
+    flat: yes
+  with_nested:
+    - '{{ certs }}'
+    - ['', '_ecc']
+
+- name: fetch ca
+  fetch:
+    src: '/root/.acme.sh/{{ item[0] }}{{ item[1] }}/ca.cer'
+    dest: '/srv/certs/{{ item[0] }}{{ item[1] }}.ca'
+    flat: yes
+  with_nested:
+    - '{{ certs }}'
+    - ['', '_ecc']

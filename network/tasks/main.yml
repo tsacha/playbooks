@@ -1,0 +1,44 @@
+---
+- name: create systemd-networkd directory
+  file: name=/etc/systemd/network state=directory
+
+- name: configure physical network
+  template:
+    src: physical.j2
+    dest: "/etc/systemd/network/{{ network.interface }}.network"
+
+- name: configure internal bridge network
+  template:
+    src: int.j2
+    dest: "/etc/systemd/network/{{ network.intbr }}.network"
+
+- name: configure external bridge network
+  template:
+    src: ext.j2
+    dest: "/etc/systemd/network/{{ network.extbr }}.network"
+
+- name: configure bridge devices
+  template:
+    src: br.j2
+    dest: "/etc/systemd/network/{{ item }}.netdev"
+  with_items:
+    - '{{ network.extbr }}'
+    - '{{ network.intbr }}'
+
+- name: enable systemd-networkd service
+  service:
+    name: systemd-networkd
+    enabled: yes
+    state: started
+
+- name: disable network service
+  service:
+    name: network
+    enabled: no
+    state: stopped
+
+- name: disable NetworkManager service
+  service:
+    name: NetworkManager
+    enabled: no
+    state: stopped

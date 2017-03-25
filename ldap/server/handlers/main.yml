@@ -1,0 +1,8 @@
+- name: convert to slapd.d
+  shell: /etc/openldap/bootstrap.sh
+
+- name: update users
+  shell: /etc/openldap/users.py
+  register: ldapusers
+  failed_when: ldapusers.rc > 1
+  changed_when: ldapusers.rc == 1

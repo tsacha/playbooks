@@ -1,0 +1,10 @@
+---
+- name: generate blog
+  shell: /opt/hugo_0.19_linux_amd64/hugo_0.19_linux_amd64
+  args:
+    chdir: /srv/http/blog
+
+- name: reload nginx
+  service:
+    name: nginx
+    state: reloaded

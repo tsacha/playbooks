@@ -1,0 +1,10 @@
+[Match]
+Name=ens2
+
+[Network]
+Address={{ hostvars[item[0]]['network']['ip6'] }}/{{ network.cidr6 }}
+Gateway={{ network.ip6 }}
+IPv6AcceptRouterAdvertisements=no
+IPv6PrivacyExtensions=no
+
+

@@ -1,0 +1,24 @@
+{% set dns_data = dns_common %}
+{% set zone = hostvars[item].network.ip6|ipaddr('revdns') %}
+{% set cidr = hostvars[item]['network']['cidr6'] %}
+$TTL 1d
+$ORIGIN {{ zone.split('.')[((cidr/4)|int+3) *-1:-1]|join('.') }}.
+; ---- SOA ----
+@ IN SOA {{ item }} {{ dns_data['SOA']['@']['email-addr'] }} {{ ansible_date_time['year'] }}{{ ansible_date_time['month'] }}{{ ansible_date_time['day'] }}{{ sn }} {{ dns_data['SOA']['@']['refresh'] }} {{ dns_data['SOA']['@']['retry'] }} {{ dns_data['SOA']['@']['expiry'] }} {{ dns_data['SOA']['@']['ttl'] }}
+; ---- NS ----
+{% for ns_raw in dns_data['NS'] %}
+{% for ns_entry in dns_data['NS'][ns_raw] %}
+{% if dns_data['NS'][ns_raw][ns_entry] is defined %}
+{{ ns_raw }} IN NS {{ dns_data['NS'][ns_raw][ns_entry] }} {{ ns_entry }}
+{% else %}
+{{ ns_raw }} IN NS {{ ns_entry }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+; ---- PTR ----
+{{ hostvars[item].network.ip6|ipaddr('revdns') }} IN PTR {{ item }}.
+{% for lxc in groups['lxc'] %}
+{% if hostvars[lxc]['lxc']['host'] == hostvars[item].shortname %}
+{{ hostvars[lxc]['network']['ip6']|ipaddr('revdns') }} IN PTR {{ lxc }}.
+{% endif %}
+{% endfor %}

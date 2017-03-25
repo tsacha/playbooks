@@ -1,0 +1,147 @@
+---
+- name: install server ldap packages
+  pacman: name={{ item }} state=latest
+  with_items:
+    - python-pip
+    - gcc
+    - make
+
+- name: install ldap3
+  pip: name=ldap3 state=latest
+
+- name: download upstream
+  get_url:
+    url: "ftp://ftp.openldap.org/pub/OpenLDAP/openldap-release/openldap-{{ ldap_upstream_version }}.tgz"
+    dest: /opt/
+  register: ldapdl
+
+- name: extract upstream
+  unarchive:
+    copy: no
+    src: '/opt/openldap-{{ ldap_upstream_version }}.tgz'
+    dest: '/opt/'
+  when: ldapdl.changed
+
+- name: configure upstream
+  shell: ./configure
+  args:
+    chdir: /opt/openldap-{{ ldap_upstream_version }}
+  when: ldapdl.changed
+
+- name: compile upstream
+  shell: make -j8
+  args:
+    chdir: /opt/openldap-{{ ldap_upstream_version }}
+  when: ldapdl.changed
+
+- name: compile sha2 module
+  shell: make -j8
+  args:
+    chdir: /opt/openldap-{{ ldap_upstream_version }}/contrib/slapd-modules/passwd/sha2
+  when: ldapdl.changed
+
+- name: copy sha2 module
+  file:
+    state: link
+    src: /opt/openldap-{{ ldap_upstream_version }}/contrib/slapd-modules/passwd/sha2/.libs/pw-sha2.so
+    dest: /usr/lib/openldap/pw-sha2.so
+    force: yes
+
+- name: override systemd ldap unit directory
+  file:
+    name: /etc/systemd/system/slapd.service.d
+    state: directory
+
+- name: override systemd ldap unit file
+  template:
+    src: override-systemd.conf.j2
+    dest: /etc/systemd/system/slapd.service.d/override.conf
+
+- name: ldap tls directory
+  file:
+    name: /etc/openldap/tls
+    state: directory
+    owner: ldap
+    group: ldap
+    mode: '0500'
+
+- name: copy ldap certs
+  copy:
+    src: '/srv/certs/{{ ldap_cert }}.{{ item }}'
+    dest: '/etc/openldap/tls/'
+    owner: ldap
+    group: ldap
+    mode: '0400'
+  with_items:
+    - cer
+    - key
+    - chain.cer
+
+- name: remove openldap default configuration
+  file:
+    state: absent
+    name: '/etc/openldap/{{ item }}'
+  with_items:
+    - DB_CONFIG.example
+    - slapd.ldif
+    - slapd.conf
+
+- name: root ldif files
+  template:
+    src: 'root.ldif.j2'
+    dest: '/etc/openldap/root.ldif'
+    owner: ldap
+    group: ldap
+    mode: '0600'
+    force: no
+
+- name: slapd.conf
+  template:
+    src: 'slapd.conf.j2'
+    dest: /etc/openldap/bootstrap.conf
+    owner: ldap
+    group: ldap
+    mode: '0600'
+  notify: convert to slapd.d
+
+- name: slapd directory
+  file:
+    path: /etc/openldap/slapd.d/
+    state: directory
+    owner: ldap
+    group: ldap
+    mode: '0700'
+
+- name: bootstrap script
+  template:
+    src: 'bootstrap.sh.j2'
+    dest: /etc/openldap/bootstrap.sh
+    owner: ldap
+    group: ldap
+    mode: '0755'
+
+- meta: flush_handlers
+
+- name: start openldap
+  service:
+    name: slapd
+    state: started
+    enabled: true
+
+- name: users script
+  template:
+    src: 'users.py.j2'
+    dest: /etc/openldap/users.py
+    owner: root
+    group: root
+    mode: '0750'
+  notify: update users
+
+- name: users data
+  template:
+    src: '/srv/ansible/group_vars/all/users.yml'
+    dest: /etc/openldap/users.yml
+    owner: root
+    group: root
+    mode: '0640'
+  notify: update users

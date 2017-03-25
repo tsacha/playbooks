@@ -1,0 +1,27 @@
+---
+- name: create vmails group
+  group:
+    name: vmails
+    state: present
+    gid: 5000
+
+- name: create vmails user
+  user:
+    name: vmails
+    uid: 5000
+    group : 5000
+    home: /srv/vmails
+    createhome: no
+  
+- name: mail directory
+  file:
+    path: /srv/vmails
+    state: directory
+    owner: vmails
+    group: vmails
+    mode: '0755'
+
+- include: pkgs.yml
+- include: spam.yml
+- include: dovecot.yml
+- include: postfix.yml

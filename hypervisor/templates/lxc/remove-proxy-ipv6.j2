@@ -1,0 +1,5 @@
+#!/bin/sh
+ip=$(grep Address /srv/lxc/$1/rootfs/etc/systemd/network/ens2.network | sed 's/Address=//g' | sed 's#/64##g')
+mac=$(grep hwaddr /srv/lxc/$1/config | awk '{ print $3 }' | tail -n1)
+ip -6 neigh del proxy $ip dev {{ network.extbr }}
+ip -6 neigh del $ip dev {{ network.extbr }} lladdr $mac

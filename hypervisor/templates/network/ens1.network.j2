@@ -1,0 +1,6 @@
+[Match]
+Name=ens1
+
+[Network]
+Address={{ hostvars[item[0]]['network']['ip'] }}/{{ network.cidrl }}
+Gateway={{ network.ipl }}

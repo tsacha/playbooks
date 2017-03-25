@@ -1,0 +1,22 @@
+---
+- name: ceramique directory
+  file:
+    path: /srv/http/ceramique
+    state: directory
+    owner: http
+    group: http
+    mode: '0755'
+
+- name: galerie directory
+  file:
+    path: /srv/http/galerie
+    state: directory
+    owner: http
+    group: http
+    mode: '0755'
+
+- name: ceram.conf
+  template:
+    src: ceram.conf.j2
+    dest: /etc/nginx/conf.d/20_ceram.conf
+  notify: reload nginx

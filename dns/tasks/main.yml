@@ -1,0 +1,78 @@
+---
+- name: install dns packages
+  pacman: name={{ item }} state=latest
+  with_items:
+    - bind
+    - python2-ipaddress
+
+- name: generic configuration
+  template:
+    owner: named
+    group: named
+    src: named.conf.j2
+    dest: /etc/named.conf
+  notify: reload named
+
+- name: create named directories
+  file:
+    owner: named
+    group: named
+    name: '{{ item }}'
+    state: directory
+  with_items:
+    - /etc/named
+    - /var/log/named
+
+- name: include configuration
+  template:
+    src: include.conf.j2
+    dest: /etc/named.zones
+  notify: reload named
+
+- name: zone local
+  template:
+    owner: named
+    group: named
+    src: local.conf.j2
+    dest: /etc/named/zone.local
+  vars:
+    sn: "{{ ((( ansible_date_time['epoch'] | int % 86400 ) / 86400) * 100 ) | int }}"
+  notify: reload named
+
+- name: zone reverse4
+  template:
+    owner: named
+    group: named
+    src: reverse4.conf.j2
+    dest: /etc/named/zone.reverse4
+  vars:
+    sn: "{{ ((( ansible_date_time['epoch'] | int % 86400 ) / 86400) * 100 ) | int }}"
+  notify: reload named
+
+- name: zones reverse6
+  template:
+    owner: named
+    group: named
+    src: reverse6.conf.j2
+    dest: /etc/named/zone.reverse6.{{ item }}
+  vars:
+    sn: "{{ ((( ansible_date_time['epoch'] | int % 86400 ) / 86400) * 100 ) | int }}"
+  with_items: "{{ groups['hypervisors'] }}"
+  notify: reload named
+
+- name: zones configuration
+  template:
+    owner: named
+    group: named
+    src: zone.conf.j2
+    dest: /etc/named/zone.{{ item }}
+  vars:
+    sn: "{{ ((( ansible_date_time['epoch'] | int % 86400 ) / 86400) * 100 ) | int }}"
+  with_items: '{{ dns_zones }}'
+  notify: reload named
+
+- name: enable and start named
+  service:
+    name: named
+    state: started
+    enabled: true

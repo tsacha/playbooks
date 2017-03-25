@@ -1,0 +1,5 @@
+BASE         {{ ldap_uri }}
+URI          ldaps://{{ ldap_uri }}
+TLS_CACERT   /etc/openldap/{{ ldap_cert }}.ca
+TIMELIMIT    2
+TLS_REQCERT  demand

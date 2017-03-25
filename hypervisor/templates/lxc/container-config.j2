@@ -1,0 +1,19 @@
+lxc.network.type = veth
+lxc.network.link = {{ network.intbr }}
+lxc.network.flags = up
+lxc.network.hwaddr = {{ hostvars[item]['network']['mac4'] }}
+lxc.network.name = ens1
+
+lxc.network.type = veth
+lxc.network.link = {{ network.extbr }}
+lxc.network.flags = up
+lxc.network.hwaddr = {{ hostvars[item]['network']['mac6'] }}
+lxc.network.name = ens2
+
+lxc.rootfs = /srv/lxc/{{ hostvars[item]['shortname'] }}/rootfs
+lxc.rootfs.backend = btrfs
+lxc.utsname = {{ hostvars[item]['shortname'] }}
+lxc.arch = x86_64
+lxc.include = /usr/share/lxc/config/{{ hostvars[item]['lxc']['template'] }}.common.conf
+
+lxc.environment = LC_ALL=en_US.UTF-8

@@ -1,0 +1,7 @@
+search local
+nameserver {{ hostvars[master_dns]['network']['ip6'] }}
+nameserver {{ hostvars[master_dns]['network']['ip'] }}
+{% if 'hypervisors' in group_names %}
+nameserver 2001:910:800::12
+nameserver 80.67.169.40
+{% endif %}

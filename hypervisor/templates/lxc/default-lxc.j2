@@ -1,0 +1,11 @@
+lxc.network.type = veth
+lxc.network.link = {{ network.intbr }}
+lxc.network.flags = up
+lxc.network.hwaddr = 00:16:3b:xx:xx:xx
+lxc.network.name = ens1
+
+lxc.network.type = veth
+lxc.network.link = {{ network.extbr }}
+lxc.network.flags = up
+lxc.network.hwaddr = 00:16:3e:xx:xx:xx
+lxc.network.name = ens2

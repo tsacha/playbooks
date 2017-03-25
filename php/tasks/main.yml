@@ -1,0 +1,30 @@
+---
+- name: install php packages
+  pacman:
+    name: '{{ item }}'
+    state: latest
+  with_items:
+    - php-apcu
+    - php-fpm
+    - php-gd
+    - php-pgsql
+    - php-intl
+    - php-mcrypt
+
+- name: php.ini configuration file
+  template:
+    src: php.ini.j2
+    dest: /etc/php/php.ini
+  notify: reload php-fpm
+
+- name: php-fpm configuration file
+  template:
+    src: www.conf.j2
+    dest: /etc/php/php-fpm.d/www.conf
+  notify: reload php-fpm
+
+- name: enable and start php-fpm
+  service:
+    name: php-fpm
+    state: started
+    enabled: true

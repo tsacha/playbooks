@@ -1,0 +1,8 @@
+server_host = ldaps://{{ ldap_uri }}
+bind = yes
+bind_dn = cn=admin,{{ ldap_root }}
+bind_pw = {{ ldap_plainpwd }}
+version = 3
+search_base = ou=aliases,ou=virtual,{{ ldap_root }}
+query_filter = (&(objectClass=inetOrgPerson)(uid=%s))
+result_attribute = homePostalAddress

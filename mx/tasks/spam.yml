@@ -1,0 +1,189 @@
+---
+- name: libfann directory
+  file:
+    path: /opt/libfann-aur
+    state: directory
+    owner: vmails
+    group: vmails
+
+- name: clone libfann
+  git:
+    repo: https://aur.archlinux.org/libfann.git
+    dest: /opt/libfann-aur
+  become: yes
+  become_user: vmails
+  register: libfanncloned
+
+- name: remove previous packages
+  shell: rm -f /opt/libfann-aur/*.tar.xz
+  when: libfanncloned.changed
+
+- name: uninstall previous packages
+  pacman: name=libfann state=absent
+  when: libfanncloned.changed
+
+- name: build libfann
+  become: yes
+  become_user: vmails
+  shell: makepkg --noconfirm --noprogressbar -mf
+  args:
+    chdir: /opt/libfann-aur
+  when: libfanncloned.changed
+
+- name: install libfann
+  shell: pacman --noconfirm --noprogressbar --needed -U /opt/libfann-aur/*.pkg.tar.xz
+  when: libfanncloned.changed
+
+- name: rspamd-aur directory
+  file:
+    path: /opt/rspamd-aur
+    state: directory
+    owner: vmails
+    group: vmails
+
+- name: clone rspamd
+  git:
+    repo: https://aur.archlinux.org/rspamd.git
+    dest: /opt/rspamd-aur
+  become: yes
+  become_user: vmails
+  register: rspamdcloned
+
+- name: remove previous packages
+  shell: rm -f /opt/rspamd-aur/*.tar.xz
+  when: rspamdcloned.changed
+
+- name: uninstall previous packages
+  pacman: name=rspamd state=absent
+  when: rspamdcloned.changed
+
+- name: build rspamd
+  become: yes
+  become_user: vmails
+  shell: makepkg --noconfirm --noprogressbar -mf
+  args:
+    chdir: /opt/rspamd-aur
+  when: rspamdcloned.changed
+
+- name: install rspamd
+  shell: pacman --noconfirm --noprogressbar --needed -U /opt/rspamd-aur/*.pkg.tar.xz
+  when: rspamdcloned.changed
+
+- name: rmilter-aur directory
+  file:
+    path: /opt/rmilter-aur
+    state: directory
+    owner: vmails
+    group: vmails
+
+- name: clone rmilter
+  git:
+    repo: https://aur.archlinux.org/rmilter.git
+    dest: /opt/rmilter-aur
+  become: yes
+  become_user: vmails
+  register: rmiltercloned
+
+- name: remove previous packages
+  shell: rm -f /opt/rmilter-aur/*.tar.xz
+  when: rmiltercloned.changed
+
+- name: uninstall previous packages
+  pacman: name=rmilter state=absent
+  when: rmiltercloned.changed
+
+- name: build rmilter
+  become: yes
+  become_user: vmails
+  shell: makepkg --noconfirm --noprogressbar -mf
+  args:
+    chdir: /opt/rmilter-aur
+  when: rmiltercloned.changed
+
+- name: install rmilter
+  shell: pacman --noconfirm --noprogressbar --needed -U /opt/rmilter-aur/*.pkg.tar.xz
+  when: rmiltercloned.changed
+
+- name: dovecot-antispam directory
+  file:
+    path: /opt/dovecot-antispam
+    state: directory
+    owner: vmails
+    group: vmails
+
+- name: opt permissions
+  file:
+    state: directory
+    name: /opt
+    owner: vmails
+    group: vmails
+
+- name: clone dovecot-antispam
+  git:
+    repo: https://git.sipsolutions.net/dovecot-antispam.git
+    dest: /opt/dovecot-antispam
+  become: yes
+  become_user: vmails
+  register: dovecotantispamcloned
+
+- name: build dovecot-antispam
+  shell: make
+  become: yes
+  become_user: vmails
+  args:
+    chdir: /opt/dovecot-antispam
+  when: dovecotantispamcloned.changed
+
+- name: dovecot-antispam symlink
+  file:
+    src: /opt/dovecot-antispam/lib90_antispam_plugin.so
+    dest: /usr/lib/dovecot/modules/lib90_antispam_plugin.so
+    state: link
+
+- name: rmilter configuration
+  template:
+    src: rmilter/rmilter.conf.j2
+    dest: /etc/rmilter/rmilter.conf
+
+- name: rmilter configuration
+  template:
+    src: rmilter/rmilter.conf.j2
+    dest: /etc/rmilter/rmilter.conf
+
+- name: rspamd
+  template:
+    src: rspamd/rspamd.conf.j2
+    dest: /etc/rspamd/rspamd.conf
+
+- name: rspamd override directory
+  file:
+    path: /etc/rspamd/override.d/
+    state: directory
+
+- name: rspamd sub-config files
+  template:
+    src: 'rspamd/{{ item }}.j2'
+    dest: '/etc/rspamd/override.d/{{ item }}'
+  with_items:
+    - worker-controller.inc
+    - metrics.conf
+    - statistic.conf
+    - redis.conf
+
+- name: start and enable redis
+  service:
+    name: redis
+    state: started
+    enabled: true
+
+- name: start and enable rmilter
+  service:
+    name: rmilter
+    state: started
+    enabled: true
+
+- name: start and enable rspamd
+  service:
+    name: rspamd
+    state: started
+    enabled: true

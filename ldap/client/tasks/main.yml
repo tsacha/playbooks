@@ -1,0 +1,39 @@
+---
+- name: install ldap packages
+  pacman: name={{ item }} state=latest
+  with_items:
+    - openldap
+    - cyrus-sasl
+    - cyrus-sasl-ldap
+
+- name: ldap configuration
+  template:
+    src: ldap.conf.j2
+    dest: /etc/openldap/ldap.conf
+    owner: ldap
+    group: ldap
+    mode: '0600'
+
+- name: copy ldap CA
+  copy:
+    src: '/srv/certs/{{ ldap_cert }}.ca'
+    dest: '/etc/openldap/'
+    owner: ldap
+    group: ldap
+    mode: '0444'
+
+- name: sasl default conf
+  template:
+    src: 'default-saslauthd.conf.j2'
+    dest: /etc/conf.d/saslauthd
+
+- name: sasl conf
+  template:
+    src: 'saslauthd.conf.j2'
+    dest: /etc/saslauthd.conf
+
+- name: start sasl
+  service:
+    name: saslauthd
+    state: started
+    enabled: true

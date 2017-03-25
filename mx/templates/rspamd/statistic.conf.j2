@@ -1,0 +1,22 @@
+classifier "bayes" {
+    tokenizer {
+        name = "osb";
+    }
+
+    name = "bayes";
+    value = 14.0;
+    min_tokens = 9;
+    min_learns = 0;
+    backend = "redis";
+    servers = "localhost:6379";
+
+    statfile {
+        symbol = "BAYES_SPAM";
+	spam = true;
+    }
+    statfile {
+        symbol = "BAYES_HAM";
+	spam = false;
+    }
+    per_user = false;
+}

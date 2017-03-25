@@ -1,0 +1,37 @@
+---
+- name: download sources
+  get_url:
+    url: https://download.nextcloud.com/server/releases/nextcloud-11.0.0.tar.bz2
+    dest: /srv/http/nextcloud.tar.bz2
+  register: nextcloudsrc
+
+- name: nextcloud directory
+  file:
+    path: /srv/http/cloud
+    state: directory
+    owner: http
+    group: http
+    mode: '0755'
+
+- name: extract sources
+  unarchive:
+    copy: no
+    src: /srv/http/nextcloud.tar.bz2
+    dest: /srv/http/cloud
+  when: nextcloudsrc.changed
+
+- name: nextcloud directory permissions
+  file:
+    path: /srv/http/cloud
+    state: directory
+    owner: http
+    group: http
+    mode: '0755'
+    recurse: yes
+
+- name: cloud.conf
+  template:
+    src: cloud.conf.j2
+    dest: /etc/nginx/conf.d/20_cloud.conf
+  notify: reload nginx
+

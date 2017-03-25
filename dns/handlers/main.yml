@@ -1,0 +1,4 @@
+- name: reload named
+  service:
+    name: named
+    state: reloaded

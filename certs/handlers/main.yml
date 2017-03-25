@@ -1,0 +1,10 @@
+---
+- name: reload nginx
+  service:
+    name: nginx
+    state: reloaded
+
+- name: install acme.sh
+  shell: /srv/acme.sh/acme.sh --install --home /srv/certs --certhome /srv/certs --accountemail "{{ letsencrypt_account }}" --nocron
+  args:
+    chdir: /srv/acme.sh

@@ -1,0 +1,117 @@
+---
+- name: install im packages
+  pacman:
+    name: '{{ item }}'
+    state: latest
+  with_items:
+    - prosody
+    - lua51-sec
+    - lua51-zlib
+    - luarocks5.1
+    - gcc
+    - mercurial
+    - postgresql-libs
+
+- name: sasl ldap conf
+  template:
+    src: 'sasl-ldap.conf.j2'
+    dest: '/usr/lib/sasl2/prosody.conf'
+
+- name: clone modules
+  hg:
+    repo: https://hg.prosody.im/prosody-modules/
+    dest: /opt/prosody-modules
+    purge: yes
+
+- name: check lua-event
+  shell: luarocks-5.1 show luaevent
+  register: luaevent
+  failed_when: luaevent.rc > 1
+  changed_when: luaevent.rc == 1
+
+- name: install lua-event
+  shell: luarocks-5.1 install luaevent
+  when: luaevent.rc == 1
+
+- name: check lua-cyrus
+  shell: luarocks-5.1 show cyrussasl
+  register: luacyrus
+  failed_when: luacyrus.rc > 1
+  changed_when: luacyrus.rc == 1
+
+- name: install lua-cyrus
+  shell: luarocks-5.1 install cyrussasl
+  when: luacyrus.rc == 1
+
+- name: check lua-bitop
+  shell: luarocks-5.1 show luabitop
+  register: luabitop
+  failed_when: luabitop.rc > 1
+  changed_when: luabitop.rc == 1
+
+- name: install lua-bitop
+  shell: luarocks-5.1 install luabitop
+  when: luabitop.rc == 1
+
+- name: check lua-postgres
+  shell: luarocks-5.1 show luadbi-postgresql
+  register: luapostgres
+  failed_when: luapostgres.rc > 1
+  changed_when: luapostgres.rc == 1
+
+- name: install lua-postgres
+  shell: luarocks-5.1 install luadbi-postgresql
+  when: luapostgres.rc == 1
+
+- name: prosody.cfg.lua
+  template:
+    src: prosody.cfg.lua.j2
+    dest: /etc/prosody/prosody.cfg.lua
+
+- name: remove certs directory
+  file:
+    state: absent
+    path: /etc/prosody/certs
+
+- name: logs directory
+  file:
+    state: directory
+    path: /var/log/prosody
+    owner: prosody
+    group: prosody
+    mode: '0755'
+
+- name: tls directory
+  file:
+    state: directory
+    path: /etc/prosody/tls
+    owner: prosody
+    group: prosody
+    mode: '0550'
+
+- name: stat dhparams
+  stat:
+    path: /etc/prosody/tls/dhparams.pem
+  register: dhparam
+
+- name: generate dhparams
+  shell: openssl dhparam -out /etc/prosody/tls/dhparams.pem 4096
+  when: dhparam.stat.exists == False
+
+- name: dhparams perms
+  file:
+    path: /etc/prosody/tls/dhparams.pem
+    owner: prosody
+    group: prosody
+    mode: '0440'
+
+- name: copy all certs
+  synchronize:
+    src: /srv/certs
+    dest: /etc/prosody/tls/
+
+- name: start prosody
+  service:
+    name: prosody
+    state: started
+    enabled: true

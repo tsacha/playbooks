@@ -1,0 +1,8 @@
+---
+- name: redirect .well-known/acme-challenge/ to acme container
+  template:
+    src: acme.conf.j2
+    dest: /etc/nginx/conf.d/99_acme.conf
+  notify: reload nginx
+
+- meta: flush_handlers

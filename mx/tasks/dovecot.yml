@@ -1,0 +1,82 @@
+---
+- name: mx tls directory
+  file:
+    name: /etc/dovecot/tls
+    state: directory
+    owner: vmails
+    group: vmails
+    mode: '0500'
+
+- name: copy mx CA
+  copy:
+    src: '/srv/certs/{{ mx_cert }}{{ item }}.ca'
+    dest: '/etc/dovecot/tls/'
+    owner: vmails
+    group: vmails
+    mode: '0444'
+  with_items:
+    - ''
+    - '_ecc'
+
+- name: copy mx certs
+  copy:
+    src: '/srv/certs/{{ mx_cert }}{{ item[0] }}.{{ item[1] }}'
+    dest: '/etc/dovecot/tls/'
+    owner: vmails
+    group: vmails
+    mode: '0400'
+  with_nested:
+    - ['', '_ecc']
+    - ['cer', 'key', 'chain.cer']
+
+- name: dovecot main configuration
+  template:
+    src: dovecot/dovecot.conf.j2
+    dest: /etc/dovecot/dovecot.conf
+    owner: dovecot
+    group: dovecot
+    mode: '0440'
+
+- name: dovecot ldap configuration
+  template:
+    src: dovecot/dovecot-ldap.conf.ext.j2
+    dest: /etc/dovecot/dovecot-ldap.conf.ext
+    owner: dovecot
+    group: dovecot
+    mode: '0400'
+
+- name: copy dovecot configuration
+  template:
+    src: 'dovecot/conf.d/{{ item }}.j2'
+    dest: '/etc/dovecot/conf.d/{{ item }}'
+    owner: dovecot
+    group: dovecot
+    mode: '0440'
+  with_items:
+    - 10-auth.conf
+    - 10-mail.conf
+    - 10-ssl.conf
+    - 10-logging.conf
+    - 10-master.conf
+    - 15-lda.conf
+    - 15-mailboxes.conf
+    - 20-imap.conf
+    - 20-lmtp.conf
+    - 20-managesieve.conf
+    - 90-sieve.conf
+    - 90-plugin.conf
+    - auth-ldap.conf.ext
+
+- name: global sieve configuration
+  template:
+    src: dovecot/global.sieve.j2
+    dest: /srv/vmails/global.sieve
+    owner: vmails
+    group: vmails
+    mode: '0644'
+
+- name: enable and start dovecot
+  service:
+    name: dovecot
+    enabled: true
+    state: started

@@ -1,0 +1,38 @@
+---
+- name: reverse proxy configuration
+  template:
+    src: web.conf.j2
+    dest: /etc/nginx/conf.d/10_web.conf
+  notify: reload nginx
+
+- name: tls directory
+  file:
+    state: directory
+    path: /etc/nginx/tls
+    owner: http
+    group: http
+    mode: '0550'
+
+- name: stat dhparams
+  stat:
+    path: /etc/nginx/tls/dhparams.pem
+  register: dhparam
+
+- name: generate dhparams
+  shell: openssl dhparam -out /etc/nginx/tls/dhparams.pem 4096
+  when: dhparam.stat.exists == False
+
+- name: dhparams perms
+  file:
+    path: /etc/nginx/tls/dhparams.pem
+    owner: http
+    group: http
+    mode: '0440'
+
+- name: copy all certs
+  synchronize:
+    src: /srv/certs
+    dest: /etc/nginx/tls/
+  notify: reload nginx
+
+- meta: flush_handlers

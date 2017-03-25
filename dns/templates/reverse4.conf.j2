@@ -1,0 +1,20 @@
+{% set dns_data = dns_common %}
+{% set item = '10.in-addr.arpa.' %}
+$TTL 1d
+$ORIGIN {{ item }}
+; ---- SOA ----
+@ IN SOA {{ item }} {{ dns_data['SOA']['@']['email-addr'] }} {{ ansible_date_time['year'] }}{{ ansible_date_time['month'] }}{{ ansible_date_time['day'] }}{{ sn }} {{ dns_data['SOA']['@']['refresh'] }} {{ dns_data['SOA']['@']['retry'] }} {{ dns_data['SOA']['@']['expiry'] }} {{ dns_data['SOA']['@']['ttl'] }}
+; ---- NS ----
+{% for ns_raw in dns_data['NS'] %}
+{% for ns_entry in dns_data['NS'][ns_raw] %}
+{% if dns_data['NS'][ns_raw][ns_entry] is defined %}
+{{ ns_raw }} IN NS {{ dns_data['NS'][ns_raw][ns_entry] }} {{ ns_entry }}
+{% else %}
+{{ ns_raw }} IN NS {{ ns_entry }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+; ---- PTR ----
+{% for lxc in groups['lxc'] %}
+{{ hostvars[lxc]['network']['ip']|ipaddr('revdns') }} IN PTR {{ hostvars[lxc]['shortname'] }}.local.
+{% endfor %}

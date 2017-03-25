@@ -1,0 +1,14 @@
+hosts = {{ ldap_uri }}
+uris = ldaps://{{ ldap_uri }}
+dn = cn=admin,{{ ldap_root }}
+dnpass = {{ ldap_plainpwd }}
+debug_level = 0
+auth_bind = no
+ldap_version = 3
+base = ou=users,ou=virtual,{{ ldap_root }}
+scope = subtree
+pass_filter = (&(objectClass=inetOrgPerson)(uid=%n))
+pass_attrs = mail=user, userPassword=password
+user_filter = (&(objectClass=inetOrgPerson)(uid=%n))
+user_attrs = mail=user, userPassword=password
+default_pass_scheme = SSHA512

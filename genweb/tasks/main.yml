@@ -1,0 +1,14 @@
+---
+- name: default directory
+  file:
+    path: /srv/http/default
+    state: directory
+    owner: http
+    group: http
+    mode: '0755'
+
+- name: default.conf
+  template:
+    src: default.conf.j2
+    dest: /etc/nginx/conf.d/30_default.conf
+  notify: reload nginx

@@ -1,0 +1,41 @@
+---
+- name: remove non-used postfix files
+  file:
+    path: '/etc/postfix/{{ item }}'
+    state: absent
+  with_items:
+    - access
+    - aliases
+    - bounce.cf.default
+    - canonical
+    - generic
+    - header_checks
+    - main.cf.default
+    - main.cf.orig
+    - main.cf.proto
+    - makedefs.out
+    - master.cf.proto
+    - postfix-files.d
+    - relocated
+    - transport
+    - virtual
+
+- name: postfix configuration
+  template:
+    src: 'postfix/{{ item }}.cf.j2'
+    dest: '/etc/postfix/{{ item }}.cf'
+    owner: root
+    group: root
+    mode: '0400'
+  with_items:
+    - main
+    - master
+    - ldap-accounts
+    - ldap-aliases
+    - ldap-domains
+
+- name: enable and start postfix
+  service:
+    name: postfix
+    enabled: true
+    state: started

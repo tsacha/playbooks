@@ -1,0 +1,19 @@
+dn: {{ ldap_root }}
+objectClass: dcObject
+objectClass: organization
+o: {{ ldap_uri }}
+
+dn: ou=virtual,{{ ldap_root }}
+objectClass: organizationalUnit
+
+dn: ou=users,ou=virtual,{{ ldap_root }}
+objectClass: organizationalUnit
+
+dn: ou=groups,ou=virtual,{{ ldap_root }}
+objectClass: organizationalUnit
+
+dn: ou=domains,ou=virtual,{{ ldap_root }}
+objectClass: organizationalUnit
+
+dn: ou=aliases,ou=virtual,{{ ldap_root }}
+objectClass: organizationalUnit

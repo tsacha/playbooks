@@ -1,0 +1,13 @@
+- name: reload systemd
+  shell: 'systemctl daemon-reload'
+
+- name: generate new grub conf
+  shell: 'grub2-set-default 0 && grub2-mkconfig -o /boot/grub2/grub.cfg'
+
+- name: restart containers
+  service:
+    name: "container@{{ hostvars[item]['shortname'] }}"
+    state: restarted
+  when: "{{ item in netcontainers|json_query('results[?changed].item[0]') }}"
+  with_items:
+    - "{{ groups['lxc'] }}"

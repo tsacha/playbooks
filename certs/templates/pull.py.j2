@@ -1,0 +1,69 @@
+#!/usr/bin/python
+import yaml
+import os
+import OpenSSL
+from datetime import datetime, timedelta
+
+WORKDIR       = '/srv/certs'
+CERTDIR       = '/root/.acme.sh'
+CHALLENGESDIR = '/srv/challenges'
+
+os.chdir('/srv/certs')
+raw = open('certs.yml', 'r')
+data = yaml.load(raw)
+
+now = datetime.today()
+limit = timedelta(days=10)
+
+change = False
+retcode = 0
+
+length = ['4096', 'ec-384']
+
+for l in length:
+    prefix_cmd = "./acme.sh --issue -k {} -f ".format(l)
+    for cert in data['certs']:
+        renew = False
+        if l == 'ec-384':
+            suffix = '_ecc'
+        else:
+            suffix =''
+        certfile = '{}/{}{}/{}.cer'.format(
+            CERTDIR,
+            cert,
+            suffix,
+            cert
+        )
+        try:
+            with open(certfile, 'r') as cer:
+                certdata = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM,
+                                                          cer.read())
+            san = str(certdata.get_extension(6)).replace('DNS:','').split(', ')
+            san.remove(cert)
+            if sorted(san) != sorted(data['certs'][cert]['domains']):
+                renew = True
+            expraw = certdata.get_notAfter().decode()
+            exp = datetime.strptime(expraw, "%Y%m%d%H%M%SZ")
+            delta = exp-now
+    
+            if(delta < limit):
+                renew = True
+        except FileNotFoundError as e:
+            renew = True
+    
+        if renew:
+            cmd = prefix_cmd + "-d {} -w {} {}".format(
+                cert,
+                CHALLENGESDIR,
+                ' '.join('-d {}'.format(d) for d in data['certs'][cert]['domains'])
+            )
+            retcode = os.system(cmd)
+            change = True
+
+if change:
+    if retcode == 256:
+        exit(256)
+    else:
+        exit(1)
+else:
+    exit(0)

@@ -1,0 +1,5 @@
+{% if sysctl is defined %}
+{% for sys in sysctl %}
+{{ sys }} = {{ sysctl[sys] }}
+{% endfor %}
+{% endif %}

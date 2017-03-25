@@ -1,0 +1,104 @@
+#!/usr/bin/python3
+import yaml
+from ldap3 import Connection, Server, SASL, EXTERNAL, SUBTREE, utils
+change = False
+
+s = Server('ldapi:///var/run/openldap/ldapi')
+c = Connection(s, authentication=SASL, sasl_mechanism=EXTERNAL, sasl_credentials='', auto_bind = True, version=3)
+
+c.search(search_base = 'ou=domains,ou=virtual,{{ ldap_root }}',
+         search_filter = '(objectClass=organization)',
+         search_scope = SUBTREE,
+         attributes=['o'])
+
+domains_ldap = [c['attributes']['o'][0] for c in c.response]
+data = yaml.load(open('/etc/openldap/users.yml', 'r'))
+
+for domain in domains_ldap:
+    if domain not in data['ldap']['domains']:
+        change = True
+        c.delete('dc='+domain+',ou=domains,ou=virtual,{{ ldap_root }}')
+
+for domain in data['ldap']['domains']:
+    if(domain not in domains_ldap):
+        change = True
+        c.add('dc='+domain+',ou=domains,ou=virtual,{{ ldap_root }}',
+              attributes={'objectClass':  ['organization', 'dcObject'],
+                           'o': domain,
+                           'dc': domain})
+
+
+c.search(search_base = 'ou=aliases,ou=virtual,{{ ldap_root }}',
+         search_filter = '(objectClass=inetOrgPerson)',
+         search_scope = SUBTREE,
+         attributes=['uid','homePostalAddress'])
+
+aliases_ldap = {c['attributes']['uid'][0]: c['attributes']['homePostalAddress'][0] for c in c.response}
+
+for alias in aliases_ldap:
+    if(alias not in data['ldap']['aliases'] or data['ldap']['aliases'][alias] != aliases_ldap[alias]):
+        change = True
+        c.delete('uid='+alias+',ou=aliases,ou=virtual,{{ ldap_root }}')
+
+for alias in data['ldap']['aliases']:
+    if(alias not in aliases_ldap or aliases_ldap[alias] != data['ldap']['aliases'][alias]):
+        change = True
+        c.add('uid='+alias+',ou=aliases,ou=virtual,{{ ldap_root }}',
+              attributes={'objectClass':  ['inetOrgPerson'],
+                          'uid': alias,
+                          'sn': alias,
+                          'cn': alias,
+                          'homePostalAddress': data['ldap']['aliases'][alias]})
+
+c.search(search_base = 'ou=users,ou=virtual,{{ ldap_root }}',
+         search_filter = '(objectClass=inetOrgPerson)',
+         search_scope = SUBTREE,
+         attributes=['uid','cn','sn','mail','userPassword'])
+
+users_ldap = {c['attributes']['uid'][0]: {
+    'sn': c['attributes']['sn'][0],
+    'pwd':c['attributes']['userPassword'][0].decode(),
+    'mail':c['attributes']['mail'][0],
+    'cn':c['attributes']['cn'][0],
+} for c in c.response}
+
+for user in users_ldap:
+    if(user not in data['ldap']['users'] or data['ldap']['users'][user] != users_ldap[user]):
+        change = True
+        c.delete('uid='+user+',ou=users,ou=virtual,{{ ldap_root }}')
+
+for user in data['ldap']['users']:
+    if(user not in users_ldap or users_ldap[user] != data['ldap']['users'][user]):
+        change = True
+        c.add('uid='+user+',ou=users,ou=virtual,{{ ldap_root }}',
+              attributes={'objectClass':  ['inetOrgPerson'],
+                           'uid': user,
+                           'userPassword': data['ldap']['users'][user]['pwd'],
+                           'cn': data['ldap']['users'][user]['cn'].encode(),
+                           'sn': data['ldap']['users'][user]['sn'].encode(),
+                           'mail': data['ldap']['users'][user]['mail']})
+
+c.search(search_base = 'ou=groups,ou=virtual,{{ ldap_root }}',
+         search_filter = '(objectClass=groupOfUniqueNames)',
+         search_scope = SUBTREE,
+         attributes=['cn','uniqueMember'])
+
+groups_ldap = {c['attributes']['cn'][0]: c['attributes']['uniqueMember'] for c in c.response}
+
+for group in groups_ldap:
+    if group not in data['ldap']['groups'] or groups_ldap[group] != ['uid='+member+',ou=users,ou=virtual,{{ ldap_root }}' for member in data['ldap']['groups'][group]]:
+        change = True
+        c.delete('cn='+group+',ou=groups,ou=virtual,{{ ldap_root }}')
+
+
+for group in data['ldap']['groups']:
+    if(group not in groups_ldap or ['uid='+member+',ou=users,ou=virtual,{{ ldap_root }}' for member in data['ldap']['groups'][group]] != groups_ldap[group]):
+        change = True
+        c.add('cn='+group+',ou=groups,ou=virtual,{{ ldap_root }}',
+              attributes={'objectClass':  ['groupOfUniqueNames'],
+                          'uniqueMember': ['uid='+member+',ou=users,ou=virtual,{{ ldap_root }}' for member in data['ldap']['groups'][group]]})
+
+if change:
+    exit(1)
+else:
+    exit(0)

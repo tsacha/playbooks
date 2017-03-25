@@ -1,0 +1,29 @@
+{% for zone in dns_zones %}
+zone "{{ zone }}" {
+    file "/etc/named/zone.{{ zone }}";
+    type master;
+    notify yes;
+};
+{% endfor %}
+
+zone "10.in-addr.arpa." {
+    file "/etc/named/zone.reverse4";
+    type master;
+    notify yes;
+};
+
+zone "local." {
+    file "/etc/named/zone.local";
+    type master;
+    notify yes;
+};
+
+{% for item in groups['hypervisors'] %}
+{% set zone = hostvars[item].network.ip6|ipaddr('revdns') %}
+{% set cidr = hostvars[item]['network']['cidr6'] %}
+zone "{{ zone.split('.')[((cidr/4)|int+3) *-1:-1]|join('.') }}." {
+  file "/etc/named/zone.reverse6.{{ item }}";
+  type master;
+  notify yes;
+};
+{% endfor %}

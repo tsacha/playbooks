@@ -1,0 +1,135 @@
+---
+- name: install mariadb packages
+  pacman:
+    name: '{{ item }}'
+    state: latest
+  with_items:
+    - mariadb
+    - mariadb-clients
+    - mysql-python
+
+- name: stat db
+  stat:
+    path: /var/lib/mysql/ibdata1
+  register: mariadbcreated
+
+- name: init db
+  shell: mysql_install_db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
+  when: mariadbcreated.stat.exists == False
+  register: mariadbinit
+
+- name: enable and start mariadb
+  service:
+    name: mariadb
+    state: running
+    enabled: true
+
+- name: Sets the init root password
+  mysql_user: user=root password="{{ mariadb.pwd }}" host=localhost
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+  when: mariadbinit.changed
+
+- name: Deletes anonymous MySQL server user for ansible_fqdn
+  mysql_user:
+    user: ""
+    host: "{{ ansible_fqdn }}"
+    login_user: root
+    login_password: "{{ mariadb.pwd }}"
+    state: "absent"
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+
+- name: Deletes anonymous MySQL server user for localhost
+  mysql_user:
+    user: ""
+    state: "absent"
+    login_user: root
+    login_password: "{{ mariadb.pwd }}"
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+
+- name: Secures the MySQL root user for IPV6 localhost (::1)
+  mysql_user:
+    user: "root"
+    password: "{{ mariadb.pwd }}"
+    host: "::1"
+    login_user: root
+    login_password: "{{ mariadb.pwd }}"
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+
+- name: Secures the MySQL root user for IPV4 localhost (127.0.0.1)
+  mysql_user:
+    user: "root"
+    password: "{{ mariadb.pwd }}"
+    host: "127.0.0.1"
+    login_user: root
+    login_password: "{{ mariadb.pwd }}"
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+
+- name: Secures the MySQL root user for localhost domain (localhost)
+  mysql_user:
+    user: "root"
+    password: "{{ mariadb.pwd }}"
+    host: "localhost"
+    login_user: root
+    login_password: "{{ mariadb.pwd }}"
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+
+- name: Secures the MySQL root user for server_hostname domain
+  mysql_user:
+    user: "root"
+    password: "{{ mariadb.pwd }}"
+    host: "{{ ansible_fqdn }}"
+    login_user: root
+    login_password: "{{ mariadb.pwd }}"
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+
+- name: Removes the MySQL test database
+  mysql_db:
+    db: test
+    state: absent
+    login_user: root
+    login_password: "{{ mariadb.pwd }}"
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+
+- name: Create user MySQL databases
+  mysql_db:
+    name: '{{ item }}'
+    state: present
+    login_user: root
+    login_password: "{{ mariadb.pwd }}"
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+  with_items: '{{ mariadb.dbs }}'
+
+- name: Create MySQL users (ipv4)
+  mysql_user:
+    user: "{{ item.name }}"
+    password: "{{ item.password }}"
+    host: "{{ item.scope4 }}"
+    login_user: root
+    login_password: "{{ mariadb.pwd }}"
+    priv: "{{ item.db }}.*:ALL"
+    state: present
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+  with_items: "{{ mariadb.users }}"
+
+- name: Create MySQL users (ipv6)
+  mysql_user:
+    user: "{{ item.name }}"
+    password: "{{ item.password }}"
+    host: "{{ item.scope6 }}"
+    login_user: root
+    login_password: "{{ mariadb.pwd }}"
+    priv: "{{ item.db }}.*:ALL"
+    state: present
+  vars:
+    ansible_python_interpreter: /usr/bin/python2
+  with_items: "{{ mariadb.users }}"

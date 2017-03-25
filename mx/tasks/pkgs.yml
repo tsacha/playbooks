@@ -1,0 +1,19 @@
+---
+- name: install mail packages
+  pacman:
+    name: '{{ item }}'
+    state: latest
+  with_items:
+    - postfix
+    - dovecot
+    - opendkim
+    - pigeonhole
+    - base-devel
+    - lua
+    - lua-lpeg
+    - gmime
+    - cmake
+    - ragel
+    - libmilter
+    - redis
+    - gd

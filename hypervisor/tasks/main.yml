@@ -1,0 +1,221 @@
+---
+- name: install hypervisor packages
+  dnf: name={{ item }} state=latest
+  with_items:
+    - '@virtualization'
+    - lxc
+    - lxc-templates
+    - lxc-devel
+    - python-lxml
+    - python3-lxml
+    - python2-jmespath
+    - python3-jmespath
+    - pacman
+    - gpg
+    - haveged
+    - radvd
+    - python-devel
+  tags: dnf
+
+- name: install lxc-python2
+  pip: name=lxc-python2 state=latest executable=pip2
+
+- name: radvd configuration
+  template:
+    src: network/radvd.conf.j2
+    dest: /etc/radvd.conf
+
+- name: enable and start radvd
+  service:
+    name: radvd
+    enabled: yes
+    state: started
+
+- name: enable and start haveged
+  service:
+    name: haveged
+    enabled: yes
+    state: started
+
+- name: disable libvirtd service
+  service:
+    name: libvirtd
+    enabled: no
+    state: stopped
+
+- name: set vconsole
+  copy:
+    src: vconsole.conf
+    dest: /etc/vconsole.conf
+
+- name: set pacman mirror list
+  copy:
+    src: mirrorlist
+    dest: /etc/pacman.d/mirrorlist
+
+- name: check pacman-key
+  shell: pacman-key -l
+  no_log: true
+  ignore_errors: yes
+  register: pacmankeys
+  changed_when: "pacmankeys.rc == 1"
+  failed_when: "pacmankeys.rc > 1"
+
+- name: check pacman-key master keys
+  shell: "pacman-key -l | grep master-key"
+  no_log: true
+  ignore_errors: yes
+  register: pacmanmasterkeys
+  changed_when: "pacmanmasterkeys.rc == 1"
+  failed_when: "pacmanmasterkeys.rc > 1"
+
+- name: init pacman-key
+  shell: pacman-key --init
+  when: pacmankeys.rc == 1
+
+- name: init pacman-key master keys
+  shell: pacman-key --populate archlinux
+  when: pacmanmasterkeys.rc == 1
+
+- name: update pacman cache
+  pacman:
+    update_cache: yes
+
+- name: create lxc directory
+  file:
+    state: directory
+    name: /srv/lxc
+
+- name: remove ipv6 proxy script
+  template:
+    src: lxc/remove-proxy-ipv6.j2
+    dest: /srv/lxc/remove-proxy-ipv6
+    mode: 0755
+
+- name: add ipv6 proxy script
+  template:
+    src: lxc/proxy-ipv6.j2
+    dest: /srv/lxc/proxy-ipv6
+    mode: 0755
+
+- name: default lxc configuration
+  template:
+    src: lxc/default-lxc.j2
+    dest: /etc/lxc/default.conf
+
+- name: lxc configuration
+  template:
+    src: lxc/conf-lxc.j2
+    dest: /etc/lxc/lxc.conf
+
+- name: container service unit
+  template:
+    src: lxc/unit.j2
+    dest: /etc/systemd/system/container@.service
+  notify: reload systemd
+
+- name: is container already created?
+  shell: "lxc-ls -1 | grep {{ hostvars[item]['shortname'] }}"
+  no_log: true
+  register: containercreated
+  changed_when: "containercreated.rc == 1"
+  failed_when: "containercreated.rc > 1"
+  with_items:
+    - "{{ groups['lxc'] }}"
+  when: "{{ hostvars[item]['lxc']['host'] == shortname }}"
+  
+- name: setup containers
+  lxc_container:
+    name: "{{ hostvars[item]['shortname'] }}"
+    container_log: true
+    backing_store: btrfs
+    template: "{{ hostvars[item]['lxc']['template'] }}"
+    template_options: '-P openssh -e systemd-networkd,sshd'
+    lxc_path: /srv/lxc
+    state: stopped
+  with_items:
+    - "{{ groups['lxc'] }}"
+  when: "{{ hostvars[item]['lxc']['host'] == shortname }} and {{ item in containercreated|json_query('results[?changed].item') }}"
+
+- name: setup config on containers
+  template:
+    src: lxc/container-config.j2
+    dest: "/srv/lxc/{{ hostvars[item]['shortname'] }}/config"
+  with_items:
+    - "{{ groups['lxc'] }}"
+  when: "{{ hostvars[item]['lxc']['host'] == shortname }}"
+    
+- name: setup network on containers
+  template:
+    src: network/{{ item[1] }}.j2
+    dest: "/srv/lxc/{{ hostvars[item[0]]['shortname'] }}/rootfs/etc/systemd/network/{{ item[1] }}"
+  with_nested:
+    - "{{ groups['lxc'] }}"
+    - [ 'ens1.network', 'ens1.netdev', 'ens2.network', 'ens2.netdev' ]
+  when: "{{ hostvars[item[0]]['lxc']['host'] == shortname }}"
+  register: netcontainers
+  notify: restart containers
+
+- name: is python present on container?
+  shell: "arch-chroot /srv/lxc/{{ hostvars[item]['shortname'] }}/rootfs/ pacman -Qs python"
+  no_log: true
+  register: pythonpresent
+  changed_when: "pythonpresent.rc == 1"
+  failed_when: "pythonpresent.rc > 1"
+  with_items:
+    - "{{ groups['lxc'] }}"
+  when: "{{ hostvars[item]['lxc']['host'] == shortname }}"
+
+- name: install python
+  shell: "arch-chroot /srv/lxc/{{ hostvars[item]['shortname'] }}/rootfs pacman -Syu --noconfirm python"
+  when: "{{ item in pythonpresent|json_query('results[?changed].item') }}"
+  with_items:
+    - "{{ groups['lxc'] }}"
+
+- name: setup ssh root directory on containers
+  file:
+    path: "/srv/lxc/{{ hostvars[item]['shortname'] }}/rootfs/root/.ssh"
+    state: directory
+  with_items:
+    - "{{ groups['lxc'] }}"
+  when: "{{ hostvars[item]['lxc']['host'] == shortname }}"
+
+- name: setup authorized_keys on containers
+  template:
+    src: ssh/authorized_keys.j2
+    dest: "/srv/lxc/{{ hostvars[item]['shortname'] }}/rootfs/root/.ssh/authorized_keys"
+  with_items:
+    - "{{ groups['lxc'] }}"
+  when: "{{ hostvars[item]['lxc']['host'] == shortname }}"
+
+- name: setup locale.conf on containers
+  template:
+    src: lxc/locale.conf.j2
+    dest: "/srv/lxc/{{ hostvars[item]['shortname'] }}/rootfs/etc/locale.conf"
+  with_items:
+    - "{{ groups['lxc'] }}"
+  when: "{{ hostvars[item]['lxc']['host'] == shortname }}"
+
+- name: edit hypervisor host file
+  lineinfile:
+    dest: /etc/hosts
+    regexp: "^{{ hostvars[item]['network']['ip'] }} "
+    line: "{{ hostvars[item]['network']['ip'] }} {{ item }} {{ hostvars[item]['shortname'] }}"
+  with_items:
+    - "{{ groups['lxc'] }}"
+  when: "{{ hostvars[item]['lxc']['host'] == shortname }}"
+
+- name: start and enable containers
+  service:
+    name: "container@{{ hostvars[item]['shortname'] }}"
+    enabled: true
+    state: started
+  with_items:
+    - "{{ groups['lxc'] }}"
+  when: "{{ hostvars[item]['lxc']['host'] == shortname }}"
+
+
+- name: create certs directory
+  file:
+    state: directory
+    name: /srv/certs

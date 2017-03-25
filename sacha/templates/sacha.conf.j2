@@ -1,0 +1,31 @@
+server {
+  listen 80;
+  listen [::]:80;
+  server_name sacha.tremoureux.fr s.tremoureux.fr tremoureux.fr;
+
+  client_max_body_size 10G;
+  fastcgi_buffers 64 4K;
+
+  gzip off;
+
+  root /srv/http/blog/public/;
+  index index.html;
+  error_page 403 /core/templates/403.php;
+  error_page 404 /core/templates/404.php;
+
+  rewrite ^/feed.xml$ /index.xml permanent;
+  rewrite ^/feed-(.*).xml$ /$1/index.xml permanent;
+
+  # Adding the cache control header for js and css files
+  # Make sure it is BELOW the location ~ \.php(?:$|/) { block
+  location ~* \.(?:css|js)$ {
+    # Optional: Don't log access to assets
+    access_log off;
+  }
+
+  # Optional: Don't log access to other assets
+  location ~* \.(?:jpg|jpeg|gif|bmp|ico|png|svg)$ {
+    access_log off;
+    expires 7d;
+  }
+}

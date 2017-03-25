@@ -1,0 +1,45 @@
+include         /etc/openldap/schema/core.schema
+include         /etc/openldap/schema/cosine.schema
+include         /etc/openldap/schema/nis.schema
+include         /etc/openldap/schema/inetorgperson.schema
+
+pidfile         /run/openldap/slapd.pid
+argsfile        /run/openldap/slapd.args
+
+modulepath    /usr/lib/openldap
+moduleload    pw-sha2.so
+moduleload    memberof.so
+moduleload    refint.so
+
+access to attrs=userPassword
+  by anonymous auth
+  by dn.exact="gidNumber =0+uidNumber=0,cn=peercred,cn=external,cn=auth" manage
+  by self write
+  by * none
+
+access to dn.sub="ou=users,ou=virtual,{{ ldap_root }}"
+  by anonymous auth
+  by dn.exact="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" manage
+  by self write
+  by * none
+
+access to *
+  by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" write
+  by dn.base="cn=admin,{{ ldap_root }}" read
+  by * none
+
+database        mdb
+maxsize         1073741824
+suffix          "{{ ldap_root }}"
+rootdn          "cn=admin,{{ ldap_root }}"
+rootpw          "{{ ldap_rootpwd }}"
+directory       /var/lib/openldap/openldap-data
+index   objectClass     eq
+
+TLSCRLCheck            none
+TLSCipherSuite         HIGH
+TLSCACertificateFile   /etc/openldap/tls/{{ ldap_cert }}.chain.cer
+TLSCertificateFile     /etc/openldap/tls/{{ ldap_cert }}.cer
+TLSCertificateKeyFile  /etc/openldap/tls/{{ ldap_cert }}.key
+TLSVerifyClient        never
+TLSProtocolMin         3.3

@@ -1,0 +1,14 @@
+#!/bin/bash
+systemctl stop slapd
+rm -Rf /var/lib/openldap/openldap-data/*
+rm -Rf /etc/openldap/slapd.d
+mv /etc/openldap/bootstrap.conf /etc/openldap/slapd.conf
+systemctl start slapd
+mkdir /etc/openldap/slapd.d
+chown -R  ldap.ldap /etc/openldap/slapd.d/
+slaptest -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d/
+chown -R  ldap.ldap /etc/openldap/slapd.d/
+chmod 700 -R /etc/openldap/slapd.d/
+mv /etc/openldap/slapd.conf /etc/openldap/bootstrap.conf
+systemctl restart slapd
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/openldap/root.ldif

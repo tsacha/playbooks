@@ -1,0 +1,65 @@
+---
+- name: webmail packages
+  pacman:
+    name: '{{ item }}'
+    state: latest
+  with_items:
+    - unzip
+
+- name: download sources
+  get_url:
+    url: http://www.rainloop.net/repository/webmail/rainloop-community-latest.zip
+    dest: /srv/http/rainloop.zip
+  register: rainloopsrc
+
+- name: clean webmail directory
+  file:
+    path: /srv/http/webmail
+    state: absent
+  when: rainloopsrc.changed
+
+- name: webmail directory
+  file:
+    path: /srv/http/webmail
+    state: directory
+    owner: http
+    group: http
+    mode: '0755'
+
+- name: extract sources
+  unarchive:
+    copy: no
+    src: /srv/http/rainloop.zip
+    dest: /srv/http/webmail
+  when: rainloopsrc.changed
+
+- name: webmail directory permissions
+  file:
+    path: /srv/http/webmail
+    state: directory
+    owner: http
+    group: http
+    mode: '0755'
+    recurse: yes
+
+- name: rainloop admin configuration
+  template:
+    src: application.ini.j2
+    dest: '/srv/http/webmail/data/_data_/_default_/configs/application.ini'
+    owner: http
+    group: http
+    mode: '0755'
+
+- name: rainloop domains configuration
+  template:
+    src: domain.ini.j2
+    dest: '/srv/http/webmail/data/_data_/_default_/domains/{{ item }}.ini'
+    owner: http
+    group: http
+  with_items: '{{ webmail_domains }}'
+
+- name: webmail.conf
+  template:
+    src: webmail.conf.j2
+    dest: /etc/nginx/conf.d/20_webmail.conf
+  notify: reload nginx

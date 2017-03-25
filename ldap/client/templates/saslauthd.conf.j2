@@ -1,0 +1,5 @@
+ldap_servers: ldaps://{{ ldap_uri }}
+ldap_search_base: ou=users,ou=virtual,{{ ldap_root }}
+ldap_bind_dn: cn=admin,{{ ldap_root }}
+ldap_bind_pw: {{ ldap_plainpwd }}
+ldap_filter: (&(objectClass=inetOrgPerson)(uid=%u))

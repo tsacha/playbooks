@@ -1,0 +1,23 @@
+[Match]
+Name={{ network.extbr }}
+
+[Network]
+{% if network.ipmx is defined %}
+Address={{ network.ipmx }}/32
+{% endif %}
+Address={{ network.ip }}/{{ network.cidr }}
+Address={{ network.ip6 }}/{{ network.cidr6 }}
+Gateway={{ network.gw }}
+Gateway={{ network.gw6 }}
+IPv6AcceptRouterAdvertisements=no
+IPv6PrivacyExtensions=no
+
+[Route]
+Destination={{ network.gw6 }}/128
+Scope=link
+
+[Route]
+Gateway={{ network.gw6 }}
+
+[Link]
+MACAddress={{ network.mac }}
